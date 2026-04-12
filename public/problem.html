@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CodePractice – Solve</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
+</head>
+<body>
+
+  <!-- Username modal -->
+  <div class="modal-overlay" id="username-modal">
+    <div class="modal">
+      <h2>Enter your username</h2>
+      <input type="text" id="username-input" placeholder="e.g. coder_123" maxlength="20">
+      <button class="btn btn-primary" style="width:100%" onclick="saveUsername()">Start Coding</button>
+    </div>
+  </div>
+
+  <nav>
+    <span class="logo">&lt;/&gt; CodePractice</span>
+    <a href="index.html">← Back to Problems</a>
+    <a href="leaderboard.html">Leaderboard</a>
+  </nav>
+
+  <div class="solve-layout">
+
+    <!-- Left panel: Problem description -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="problem-title">Loading...</h2>
+        <span class="badge" id="problem-difficulty"></span>
+      </div>
+      <div class="panel-body">
+        <p id="problem-description" style="line-height:1.7; color:#cbd5e0; margin-bottom:20px;"></p>
+        <h3 style="font-size:14px; margin-bottom:10px; color:#94a3b8;">Examples</h3>
+        <div id="problem-examples"></div>
+        <h3 style="font-size:14px; margin:20px 0 10px; color:#94a3b8;">Test Cases</h3>
+        <div id="problem-tests"></div>
+      </div>
+    </div>
+
+    <!-- Right panel: Editor + Output -->
+<div class="panel">
+  <div class="panel-header">
+    <h2>Code Editor</h2>
+    <span id="run-status" style="font-size:13px;"></span>
+  </div>
+
+  <div style="flex:1; min-height:0; overflow:hidden;">
+    <div id="editor-container" style="height:100%;"></div>
+  </div>
+
+  <div class="toolbar">
+    <select id="lang-select" onchange="changeLanguage()">
+      <option value="javascript">JavaScript</option>
+      <option value="python">Python</option>
+    </select>
+    <button class="btn btn-secondary" onclick="runCode()">▶ Run</button>
+    <button class="btn btn-success" onclick="submitCode()">✓ Submit</button>
+    <span id="python-status" style="font-size:12px; color:#94a3b8;"></span>
+  </div>
+
+  <div style="padding:16px; border-top:1px solid #2d3748; flex-shrink:0; max-height:180px; overflow-y:auto;">
+    <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">Output</div>
+    <div class="output-box" id="output">Run your code to see output here.</div>
+  </div>
+</div>
+
+  <!-- Monaco loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+
+  <!-- Pyodide for Python in browser -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────
+    const params     = new URLSearchParams(location.search);
+    const problemId  = parseInt(params.get('id') || '1');
+    let editor, problem, currentLang = 'javascript';
+    let pyodide = null;
+    let pyodideLoading = false;
+
+    // ── Username ───────────────────────────────────────────────────────────
+    let username = localStorage.getItem('cp_username');
+    if (username) {
+      document.getElementById('username-modal').style.display = 'none';
+    }
+
+    function saveUsername() {
+      const val = document.getElementById('username-input').value.trim();
+      if (!val) return alert('Please enter a username.');
+      localStorage.setItem('cp_username', val);
+      username = val;
+      document.getElementById('username-modal').style.display = 'none';
+    }
+
+    // allow Enter key in username modal
+    document.getElementById('username-input')
+      .addEventListener('keydown', e => { if (e.key === 'Enter') saveUsername(); });
+
+    // ── Monaco Editor ──────────────────────────────────────────────────────
+    require.config({
+      paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }
+    });
+
+    require(['vs/editor/editor.main'], () => {
+      editor = monaco.editor.create(document.getElementById('editor-container'), {
+        value: '// Loading problem...',
+        language: 'javascript',
+        theme: 'vs-dark',
+        fontSize: 14,
+        minimap: { enabled: false },
+        automaticLayout: true,
+        scrollBeyondLastLine: false,
+        padding: { top: 16, bottom: 16 },
+        lineNumbers: 'on',
+        roundedSelection: true,
+        wordWrap: 'on'
+      });
+      loadProblem();
+    });
+
+    // ── Load Problem from API ──────────────────────────────────────────────
+    function loadProblem() {
+      fetch(`/api/problems/${problemId}`)
+        .then(r => r.json())
+        .then(p => {
+          problem = p;
+
+          document.getElementById('problem-title').textContent = p.title;
+
+          const badge = document.getElementById('problem-difficulty');
+          badge.textContent = p.difficulty;
+          badge.className = `badge badge-${p.difficulty.toLowerCase()}`;
+
+          document.getElementById('problem-description').textContent = p.description;
+
+          // Examples
+          document.getElementById('problem-examples').innerHTML = p.examples.map(ex => `
+            <div style="background:#0f1117; border-radius:8px; padding:12px;
+                        margin-bottom:10px; font-family:monospace; font-size:13px;">
+              <div style="color:#94a3b8; margin-bottom:4px;">
+                Input: <span style="color:#e2e8f0">${ex.input}</span>
+              </div>
+              <div style="color:#94a3b8;">
+                Output: <span style="color:#6ee7b7">${ex.output}</span>
+              </div>
+            </div>
+          `).join('');
+
+          // Test cases summary
+          document.getElementById('problem-tests').innerHTML = p.testCases.map((tc, i) => `
+            <div style="background:#0f1117; border-radius:8px; padding:10px 12px;
+                        margin-bottom:8px; font-family:monospace; font-size:12px;
+                        display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#94a3b8;">Test ${i + 1}</span>
+              <span id="tc-status-${i}" style="font-size:12px;">–</span>
+            </div>
+          `).join('');
+
+          editor.setValue(p.starterCode[currentLang]);
+        })
+        .catch(() => {
+          document.getElementById('problem-title').textContent = 'Problem not found';
+        });
+    }
+
+    // ── Language Switch ────────────────────────────────────────────────────
+    function changeLanguage() {
+      currentLang = document.getElementById('lang-select').value;
+      monaco.editor.setModelLanguage(editor.getModel(), currentLang);
+      if (problem) editor.setValue(problem.starterCode[currentLang]);
+
+      // Pre-load Pyodide in background when Python is selected
+      if (currentLang === 'python') warmUpPyodide();
+    }
+
+    // ── Pyodide (Python runtime) ───────────────────────────────────────────
+    async function warmUpPyodide() {
+      if (pyodide || pyodideLoading) return;
+      pyodideLoading = true;
+      document.getElementById('python-status').textContent = 'Loading Python...';
+      try {
+        pyodide = await loadPyodide();
+        document.getElementById('python-status').textContent = 'Python ready ✓';
+        setTimeout(() => {
+          document.getElementById('python-status').textContent = '';
+        }, 2000);
+      } catch (e) {
+        document.getElementById('python-status').textContent = 'Python failed to load';
+      }
+      pyodideLoading = false;
+    }
+
+    async function ensurePyodide() {
+      if (pyodide) return true;
+      if (pyodideLoading) {
+        // Wait for it to finish loading
+        document.getElementById('output').textContent = 'Waiting for Python runtime...';
+        while (pyodideLoading) await new Promise(r => setTimeout(r, 200));
+        return !!pyodide;
+      }
+      await warmUpPyodide();
+      return !!pyodide;
+    }
+
+    // ── Run Code ───────────────────────────────────────────────────────────
+    async function runCode() {
+      if (!problem) return;
+      const code    = editor.getValue();
+      const output  = document.getElementById('output');
+      output.textContent = 'Running...';
+      output.className   = 'output-box';
+
+      try {
+        if (currentLang === 'javascript') {
+          output.textContent = runJavaScript(code);
+        } else if (currentLang === 'python') {
+          output.textContent = await runPython(code);
+        }
+      } catch (e) {
+        output.textContent = 'Unexpected error: ' + e.message;
+      }
+    }
+
+    // ── JavaScript Execution (sandboxed via Function) ──────────────────────
+    function runJavaScript(code) {
+      const logs = [];
+
+      // Proxy console.log to capture output
+      const fakeConsole = {
+        log:   (...a) => logs.push(a.map(stringify).join(' ')),
+        warn:  (...a) => logs.push('[warn] '  + a.map(stringify).join(' ')),
+        error: (...a) => logs.push('[error] ' + a.map(stringify).join(' ')),
+      };
+
+      try {
+        // Use Function constructor instead of eval — slightly safer scope
+        const fn = new Function('console', code);
+        fn(fakeConsole);
+      } catch (e) {
+        return `Error: ${e.message}`;
+      }
+
+      return logs.length ? logs.join('\n') : '(no output — did you use console.log?)';
+    }
+
+    // ── Python Execution (via Pyodide / WebAssembly) ───────────────────────
+    async function runPython(code) {
+      const ready = await ensurePyodide();
+      if (!ready) return 'Error: Python runtime could not be loaded.';
+
+      try {
+        // Redirect stdout so we can capture print() output
+        pyodide.runPython(`
+          import sys, io
+          sys.stdout = io.StringIO()
+          sys.stderr = io.StringIO()
+        `);
+
+        pyodide.runPython(code);
+
+        const stdout = pyodide.runPython('sys.stdout.getvalue()');
+        const stderr = pyodide.runPython('sys.stderr.getvalue()');
+
+        return (stdout || '') + (stderr ? '\n[stderr]\n' + stderr : '') || '(no output — did you use print()?)';
+      } catch (e) {
+        // Pyodide wraps errors — extract the clean Python traceback
+        const msg = e.message || String(e);
+        const lines = msg.split('\n');
+        // Find the last meaningful line (usually "TypeError: ..." etc.)
+        return lines.slice(-3).join('\n');
+      }
+    }
+
+    // ── Submit Code ────────────────────────────────────────────────────────
+    async function submitCode() {
+      if (!problem) return;
+      if (!username) return alert('Please set a username first.');
+
+      const code      = editor.getValue();
+      const output    = document.getElementById('output');
+      const statusEl  = document.getElementById('run-status');
+
+      output.textContent = 'Running test cases...';
+      statusEl.textContent = '';
+
+      let passedCount = 0;
+      const results   = [];
+      const start     = Date.now();
+
+      for (let i = 0; i < problem.testCases.length; i++) {
+        const tc     = problem.testCases[i];
+        const tcEl   = document.getElementById(`tc-status-${i}`);
+        tcEl.textContent = '⏳';
+
+        let result = '';
+        try {
+          if (currentLang === 'javascript') {
+            result = runJavaScript(code + `\n\nconsole.log(JSON.stringify(${tc.input}))`);
+          } else {
+            result = await runPython(code + `\nprint(${tc.input})`);
+          }
+        } catch (e) {
+          result = '';
+        }
+
+        const pass = result.trim().includes(tc.expected.trim());
+        if (pass) passedCount++;
+
+        results.push({ input: tc.input, expected: tc.expected, got: result.trim(), pass });
+        tcEl.textContent    = pass ? '✓' : '✗';
+        tcEl.style.color    = pass ? '#6ee7b7' : '#fca5a5';
+      }
+
+      const allPassed = passedCount === problem.testCases.length;
+      const time      = ((Date.now() - start) / 1000).toFixed(2);
+
+      // Show result summary in output box
+      output.innerHTML = `<span class="${allPassed ? 'status-pass' : 'status-fail'}" style="font-size:15px; font-weight:600;">
+        ${allPassed ? '✓ All test cases passed!' : `✗ ${passedCount}/${problem.testCases.length} test cases passed`}
+      </span>\n\n` + results.map((r, i) => `Test ${i+1}: ${r.pass ? '✓' : '✗'}
+  Input:    ${r.input}
+  Expected: ${r.expected}
+  Got:      ${r.got}`).join('\n\n');
+
+      statusEl.textContent = allPassed ? '✓ Accepted' : `✗ ${passedCount}/${problem.testCases.length} passed`;
+      statusEl.style.color = allPassed ? '#6ee7b7' : '#fca5a5';
+
+      // Save to leaderboard
+      await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, problemId, passed: allPassed, time })
+      });
+    }
+
+    // ── Helper: stringify any JS value for console output ──────────────────
+    function stringify(val) {
+      if (val === null)      return 'null';
+      if (val === undefined) return 'undefined';
+      if (typeof val === 'object') {
+        try { return JSON.stringify(val); } catch { return String(val); }
+      }
+      return String(val);
+    }
+  </script>
+
+</body>
+</html>

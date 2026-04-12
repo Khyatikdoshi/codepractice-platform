@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CodePractice – Leaderboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="logo">&lt;/&gt; CodePractice</span>
+    <a href="index.html">Problems</a>
+    <a href="leaderboard.html">Leaderboard</a>
+  </nav>
+
+  <div class="container">
+    <h1 style="font-size:28px; margin-bottom:6px;">🏆 Leaderboard</h1>
+    <p style="color:#94a3b8; margin-bottom:24px;">Top coders by problems solved</p>
+
+    <div id="board-container">
+      <p style="color:#94a3b8;">Loading...</p>
+    </div>
+  </div>
+
+  <script>
+    const medals = ['🥇', '🥈', '🥉'];
+    fetch('/api/leaderboard')
+      .then(r => r.json())
+      .then(board => {
+        const container = document.getElementById('board-container');
+        if (!board.length) {
+          container.innerHTML = '<p style="color:#94a3b8">No submissions yet. Start solving!</p>';
+          return;
+        }
+        container.innerHTML = `
+          <table>
+            <thead>
+              <tr><th>Rank</th><th>Username</th><th>Problems Solved</th></tr>
+            </thead>
+            <tbody>
+              ${board.map((row, i) => `
+                <tr>
+                  <td><span class="rank-${i+1}">${medals[i] || `#${i+1}`}</span></td>
+                  <td style="font-weight:600">${row.username}</td>
+                  <td>${row.solved} solved</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "title": "Two Sum",
+    "difficulty": "Easy",
+    "description": "Given an array of integers and a target, return indices of two numbers that add up to the target.",
+    "examples": [
+      { "input": "nums = [2,7,11,15], target = 9", "output": "[0,1]" }
+    ],
+    "starterCode": {
+      "javascript": "function twoSum(nums, target) {\n  // your code here\n}",
+      "python": "def two_sum(nums, target):\n    # your code here\n    pass"
+    },
+    "testCases": [
+      { "input": "[2,7,11,15]\n9", "expected": "[0,1]" },
+      { "input": "[3,2,4]\n6", "expected": "[1,2]" }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Reverse String",
+    "difficulty": "Easy",
+    "description": "Write a function that reverses a string in-place.",
+    "examples": [
+      { "input": "s = ['h','e','l','l','o']", "output": "['o','l','l','e','h']" }
+    ],
+    "starterCode": {
+      "javascript": "function reverseString(s) {\n  // your code here\n}",
+      "python": "def reverse_string(s):\n    # your code here\n    pass"
+    },
+    "testCases": [
+      { "input": "hello", "expected": "olleh" },
+      { "input": "world", "expected": "dlrow" }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "FizzBuzz",
+    "difficulty": "Easy",
+    "description": "Print numbers 1 to n. For multiples of 3 print Fizz, multiples of 5 print Buzz, both print FizzBuzz.",
+    "examples": [
+      { "input": "n = 5", "output": "1, 2, Fizz, 4, Buzz" }
+    ],
+    "starterCode": {
+      "javascript": "function fizzBuzz(n) {\n  // your code here\n}",
+      "python": "def fizz_buzz(n):\n    # your code here\n    pass"
+    },
+    "testCases": [
+      { "input": "15", "expected": "FizzBuzz" }
+    ]
+  }
+]

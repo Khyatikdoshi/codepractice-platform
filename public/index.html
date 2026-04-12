@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodePractice</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="logo">&lt;/&gt; CodePractice</span>
+    <a href="index.html">Problems</a>
+    <a href="leaderboard.html">Leaderboard</a>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <h1>Practice <span>Coding</span> Daily</h1>
+      <p>Sharpen your skills with real problems and compete on the leaderboard.</p>
+      <a href="#problems" class="btn btn-primary">Browse Problems</a>
+    </div>
+
+    <h2 id="problems" style="font-size:20px; margin-bottom:8px;">All Problems</h2>
+    <div class="problems-grid" id="problems-list">
+      <p style="color:#94a3b8">Loading problems...</p>
+    </div>
+  </div>
+
+  <script>
+    fetch('/api/problems')
+      .then(r => r.json())
+      .then(problems => {
+        const el = document.getElementById('problems-list');
+        el.innerHTML = problems.map((p, i) => `
+          <a class="problem-card" href="problem.html?id=${p.id}">
+            <h3>#${i + 1}. ${p.title}</h3>
+            <div class="meta">
+              <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
+            </div>
+          </a>
+        `).join('');
+      });
+  </script>
+</body>
+</html>
