@@ -27,3 +27,6 @@ Open http://localhost:3000
 
 ##Live Demo:
 https://codepractice-platform.onrender.com
+
+##Author
+Khyati K Doshi GitHub: @Khyatikdoshi
